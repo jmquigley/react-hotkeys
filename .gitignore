@@ -32,7 +32,4 @@ node_modules
 .Spotlight-V100
 .Trashes
 
-/cjs
-/umd
-/es
 examples/public
