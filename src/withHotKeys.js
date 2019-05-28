@@ -4,6 +4,8 @@ import Configuration from './lib/Configuration';
 import KeyEventManager from './lib/KeyEventManager';
 import isEmpty from './utils/collection/isEmpty';
 import KeyCombinationSerializer from './lib/KeyCombinationSerializer';
+import backwardsCompatibleContext from './utils/backwardsCompatibleContext';
+import isUndefined from './utils/isUndefined';
 
 /**
  * Wraps a React component in a HotKeysEnabled component, which passes down the
@@ -39,7 +41,7 @@ function withHotKeys(Component, hotKeysOptions = {}) {
    * selectively triggers actions (that may be handled by handler functions) when a
    * sequence of events matches a list of pre-defined sequences or combinations
    */
-  return class HotKeysEnabled extends PureComponent {
+  class HotKeysEnabled extends PureComponent {
     static propTypes = {
       /**
        * A unique key to associate with KeyEventMatchers that allows associating handler
@@ -114,14 +116,6 @@ function withHotKeys(Component, hotKeysOptions = {}) {
       allowChanges: PropTypes.bool
     };
 
-     static contextTypes = {
-      hotKeysParentId: PropTypes.number,
-    };
-
-     static childContextTypes = {
-       hotKeysParentId: PropTypes.number,
-     };
-
     constructor(props) {
       super(props);
 
@@ -139,12 +133,17 @@ function withHotKeys(Component, hotKeysOptions = {}) {
       this._componentIsFocused = this._componentIsFocused.bind(this);
 
       this._id = KeyEventManager.getInstance().registerKeyMap(props.keyMap);
-    }
 
-    getChildContext() {
-      return {
-        hotKeysParentId: this._id
-      };
+      /**
+       * We maintain a separate instance variable to contain context that will be
+       * passed down to descendants of this component so we can have a consistent
+       * reference to the same object, rather than instantiating a new one on each
+       * render, causing unnecessary re-rendering of descendant components that
+       * consume the context.
+       *
+       * @see https://reactjs.org/docs/context.html#caveats
+       */
+      this._childContext = { hotKeysParentId: this._id };
     }
 
     render() {
@@ -271,7 +270,17 @@ function withHotKeys(Component, hotKeysOptions = {}) {
           this._getComponentOptions()
         );
 
-      this._focusTreeIdsPush(focusTreeId);
+      if (!isUndefined(focusTreeId)) {
+        /**
+         * focusTreeId should never normally be undefined, but this return state is
+         * used to indicate that a component with the same componentId has already
+         * registered as focused/enabled (again, a condition that should not normally
+         * occur, but apparently can for as-yet unknown reasons).
+         *
+         * @see https://github.com/greena13/react-hotkeys/issues/173
+         */
+        this._focusTreeIdsPush(focusTreeId);
+      }
 
       this._focused = true;
     }
@@ -373,6 +382,20 @@ function withHotKeys(Component, hotKeysOptions = {}) {
       };
     }
   }
+
+  return backwardsCompatibleContext(HotKeysEnabled, {
+    deprecatedAPI: {
+      contextTypes: {
+        hotKeysParentId: PropTypes.number,
+      },
+      childContextTypes: {
+        hotKeysParentId: PropTypes.number,
+      },
+    },
+    newAPI: {
+      contextType: { hotKeysParentId: undefined },
+    }
+  });
 }
 
 export default withHotKeys;

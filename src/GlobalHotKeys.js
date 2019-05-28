@@ -2,6 +2,7 @@ import PropTypes from 'prop-types';
 import { Component } from 'react';
 import Configuration from './lib/Configuration';
 import KeyEventManager from './lib/KeyEventManager';
+import backwardsCompatibleContext from './utils/backwardsCompatibleContext';
 
 class GlobalHotKeys extends Component {
   static propTypes = {
@@ -30,10 +31,21 @@ class GlobalHotKeys extends Component {
     allowChanges: PropTypes.bool
   };
 
-  getChildContext() {
-    return {
-      globalHotKeysParentId: this._id
-    };
+  constructor(props) {
+    super(props);
+
+    this._id = KeyEventManager.getInstance().registerGlobalKeyMap(props.keyMap);
+
+    /**
+     * We maintain a separate instance variable to contain context that will be
+     * passed down to descendants of this component so we can have a consistent
+     * reference to the same object, rather than instantiating a new one on each
+     * render, causing unnecessary re-rendering of descendant components that
+     * consume the context.
+     *
+     * @see https://reactjs.org/docs/context.html#caveats
+     */
+    this._childContext = { globalHotKeysParentId: this._id };
   }
 
   render() {
@@ -59,12 +71,6 @@ class GlobalHotKeys extends Component {
         this._getEventOptions()
       );
     }
-  }
-
-  constructor(props) {
-    super(props);
-
-    this._id = KeyEventManager.getInstance().registerGlobalKeyMap(props.keyMap);
   }
 
   componentDidMount() {
@@ -106,10 +112,16 @@ class GlobalHotKeys extends Component {
   }
 }
 
-GlobalHotKeys.contextTypes = {
-  globalHotKeysParentId: PropTypes.number,
-};
-
-GlobalHotKeys.childContextTypes = GlobalHotKeys.contextTypes;
-
-export default GlobalHotKeys;
+export default backwardsCompatibleContext(GlobalHotKeys, {
+  deprecatedAPI: {
+    contextTypes: {
+      globalHotKeysParentId: PropTypes.number,
+    },
+    childContextTypes: {
+      globalHotKeysParentId: PropTypes.number,
+    },
+  },
+  newAPI: {
+    contextType: { globalHotKeysParentId: undefined },
+  }
+});

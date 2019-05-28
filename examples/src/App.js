@@ -1,5 +1,5 @@
 import { HotKeys, GlobalHotKeys, ObserveKeys, getApplicationKeyMap } from 'react-hotkeys';
-import React, { Fragment } from 'react';
+import React from 'react';
 
 import Node from './Node';
 import HOCWrappedNode from './HOCWrappedNode';
@@ -128,7 +128,7 @@ class App extends React.Component {
     const className = konamiTime ? 'viewport konamiTime' : 'viewport';
 
     return (
-      <Fragment>
+      <React.StrictMode>
         <GlobalHotKeys
           keyMap={globalKeyMap}
           handlers={globalHandlers}
@@ -158,7 +158,7 @@ class App extends React.Component {
             </div>
           </div>
         </HotKeys>
-      </Fragment>
+      </React.StrictMode>
     );
   }
 }
